@@ -33,6 +33,7 @@ int main(int argc,char *argv[])
   destFile = fopen(srcfilename,"w");
   char *salt = fetchSaltForPassword(); 
   fprintf(destFile, "%d", (int)strlen(salt) );    //write salt length
+  fseek(destFile, 64 ,SEEK_SET);
   fprintf(destFile, "\n%s", salt );               // write salt value
 
   PrepareForCryptoOperation(salt);    //common functionalities including initializing the handle and setting the passkey
@@ -68,8 +69,7 @@ int main(int argc,char *argv[])
 
   }
   printf("\nSuccessfully encrypted file %s to %s ( %d bytes written)\n\n",saveStringName,srcfilename,bytesTotalWritten);
-  fseek(destFile,128,SEEK_SET);
-  fprintf(destFile,"%d",bytesTotalWritten);
+  PrepareForHashOperation();
   AttachHash(destFile,bytesTotalWritten);
 
   cleanup( srcFile , destFile , plainText , cipherText );       
@@ -80,14 +80,15 @@ void AttachHash(FILE * encryptedFile , int bytesTotalWritten)
 {
   FILE * writer = encryptedFile;
 
-  unsigned char *encryptedData = malloc(bytesTotalWritten);
-  unsigned char *digest = malloc(bytesTotalWritten);
+  unsigned char *encryptedData = malloc( bytesTotalWritten );
+  unsigned char *digest = malloc( bytesTotalWritten );
 
-  fseek(writer, 256 + bytesTotalWritten, SEEK_SET);   //writer will write the hashed data at the end of file
-  fseek(encryptedFile,256,SEEK_SET);                  // reader will begin from the start of encrypted data
+  fseek(writer, 128 , SEEK_SET);        //writer will write the hashed data from 128 to 256 bytes
+  fseek(encryptedFile, 256, SEEK_SET);                  // reader will begin from the start of encrypted data location
 
-  while( fread( encryptedData,bytesTotalWritten,1,encryptedFile) !=0 )
+  while( !feof(encryptedFile) )      
   {
+    fread( encryptedData, bytesTotalWritten, 1, encryptedFile);   // read the encrypted data
     gcry_md_write( digestHandle, encryptedData , 1);
     digest = gcry_md_read( digestHandle , 0 );
     fwrite( digest, (int)strlen(digest), 1 , writer);
@@ -96,7 +97,7 @@ void AttachHash(FILE * encryptedFile , int bytesTotalWritten)
   free(encryptedData);
   free(digest);
 
-  printf("\nHash written to file of size %d bytes",(int)strlen(digest));
+  printf("\nHash written to file of size %d bytes\n",(int)strlen(digest));
 }
 
 

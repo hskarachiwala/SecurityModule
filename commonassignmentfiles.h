@@ -7,9 +7,11 @@ char * requestPassword();
 void cleanup(FILE *, FILE * , unsigned char * ,unsigned char * );
 void PrepareForCryptoOperation( char *);
 void AttachHash(FILE * , int );
+void VerifyHash(FILE * encryptedFile , unsigned char *);
 
-gcry_cipher_hd_t handle;
-gcry_md_hd_t digestHandle;
+
+gcry_cipher_hd_t handle;              // cipher handle
+gcry_md_hd_t digestHandle;            // digest handle
 gcry_error_t libgcryptError = 0;
 int gcryptInitStatus,currentAlgoBlockSize;
 char *password,*keybuffer = NULL;
@@ -29,7 +31,7 @@ void PrepareForHashOperation()
     exit(0);
   }
 
-  libgcryptError = gcry_md_setkey(digestHandle, keybuffer, strlen(keybuffer));
+  libgcryptError = gcry_md_setkey( digestHandle, keybuffer, strlen(keybuffer));
   if (libgcryptError)
   {
     printf ("Failure in setting key for MAC: Details - %s\n", gcry_strerror (libgcryptError));
@@ -40,7 +42,6 @@ void PrepareForHashOperation()
 void PrepareForCryptoOperation(char *saltValue)
 {
   keybuffer = malloc(256);     
-  char *salt = fetchSaltForPassword();
 
   if( !InitializeGcrypt() )     //initializing gcrypt
   {
@@ -57,7 +58,7 @@ void PrepareForCryptoOperation(char *saltValue)
 
   password = requestPassword();   
   
-  libgcryptError = gcry_kdf_derive(password,strlen(password),GCRY_KDF_PBKDF2 ,GCRY_MD_SHA512, salt , 16 , 64000, 64 ,keybuffer );
+  libgcryptError = gcry_kdf_derive(password,strlen(password),GCRY_KDF_PBKDF2 ,GCRY_MD_SHA512, saltValue , 16 , 64000, 64 ,keybuffer );
   if (libgcryptError)
   {
     printf ("Failure in deriving key: Details -  %s\n",gcry_strerror (libgcryptError));

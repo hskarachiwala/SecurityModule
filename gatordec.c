@@ -44,12 +44,13 @@ int main(int argc,char *argv[])
   plainText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     //read block of 1024 bytes
   cipherText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     
   
-  VerifyHash()
+  PrepareForHashOperation();
+  VerifyHash(srcFile,cipherText);
+  fseek( srcFile, 256 , SEEK_SET);
 
   while( !feof(srcFile) )
-  {
-    fread( cipherText,currentAlgoBlockSize,1,srcFile );      // reading in algo block size quantity     
-     
+  {      
+    fread( cipherText,currentAlgoBlockSize,1,srcFile );
     libgcryptError =  gcry_cipher_decrypt (handle, plainText, 1024, cipherText, currentAlgoBlockSize );    //decrypt
     if (libgcryptError)
     {
@@ -69,26 +70,27 @@ int main(int argc,char *argv[])
 
 }
 
-
-void VerifyHash(FILE * encryptedFile , int bytesTotalWritten)
+void VerifyHash(FILE * encryptedFile , unsigned char * cipherText)
 {
-  FILE * writer = encryptedFile;
+  unsigned char *hash = malloc(128);
+  unsigned char *newhash = malloc(128);
 
-  unsigned char *encryptedData = malloc(bytesTotalWritten);
-  unsigned char *digest = malloc(bytesTotalWritten);
+  fseek( encryptedFile, 128, SEEK_SET);                  // reader will begin from the start of encrypted data
+  fread( hash, 128, 1, encryptedFile );
+  fseek( encryptedFile, 256 , SEEK_SET);
 
-  fseek(writer, 256 + bytesTotalWritten, SEEK_SET);   //writer will write the hashed data at the end of file
-  fseek(encryptedFile,256,SEEK_SET);                  // reader will begin from the start of encrypted data
-
-  while( fread( encryptedData,bytesTotalWritten,1,encryptedFile) !=0 )
+  while( fread( cipherText,128,1,encryptedFile) !=0 )   // read 128 bytes of cipher text to recompute hash
   {
-    gcry_md_write( digestHandle, encryptedData , 1);
-    digest = gcry_md_read( digestHandle , 0 );
-    fwrite( digest, (int)strlen(digest), 1 , writer);
+    gcry_md_write( digestHandle, cipherText , 1);
+    newhash = gcry_md_read( digestHandle , 0 );
   }
 
-  free(encryptedData);
-  free(digest);
-
-  printf("\nHash written to file of size %d bytes",(int)strlen(digest));
+  if (strcmp(hash,newhash))
+  {
+    printf("\nMAC successfully verified");
+  }
+  else
+  {
+    printf("\nMAC are not matching!");
+  }
 }
