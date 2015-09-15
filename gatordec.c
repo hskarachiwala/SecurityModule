@@ -33,42 +33,32 @@ int main(int argc,char *argv[])
   }
   strcat( decryptedFileName,".txt" );
 
-  currentAlgoBlockSize = (int)gcry_cipher_get_algo_blklen(GCRY_CIPHER_AES);  // get the block size of the algo
-  if(!currentAlgoBlockSize)
-  {
-    printf("\nFailed to retrieve block size");
-    exit(0);
-  }
-
   int outputSize,bytesTotalWritten = 0;
-  long filelen;
   PrepareForHashOperation();
   VerifyHash(srcfilename);
-  
-  srcFile = fopen(srcfilename,"rb");
-  destFile = fopen(decryptedFileName,"w");     
-  fseek(srcFile, 0, SEEK_END);          // Jump to the end of the file
-  filelen = ftell(srcFile);             // Get the current byte offset in the file
-  filelen = filelen - 128;              // ignore the first 128 bytes
 
-  plainText = malloc( (filelen + 1) );   // Allocate that much space
-  cipherText = malloc( (filelen + 1) );   // Allocate that much space
-  cipherText[filelen+1] = '\0';           // Close the string
-  fseek( srcFile, 128 , SEEK_SET);          //start reading from 128 bytes in file
-  fread( cipherText, filelen , 1, srcFile); // Read in the entire file
-      
-  libgcryptError =  gcry_cipher_decrypt( handle, plainText, 1024, cipherText, 1024 );    //decrypt
-  if (libgcryptError)
-  {
-    printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
-    return -1;
+  plainText = malloc( 256 );
+  cipherText = malloc( 256 );
+
+  destFile = fopen("hamza.txt","w");
+  srcFile = fopen(srcfilename,"r");
+  fseek(srcFile,128,SEEK_SET);            //start reading from 128 bytes
+
+  while( !feof(srcFile) )
+  {      
+    fread( cipherText,256,1,srcFile );
+    libgcryptError =  gcry_cipher_decrypt (handle, cipherText, 256, NULL, 0 );    //decrypt
+    if (libgcryptError)
+    {
+      printf ("Failure in decrypting : Details -  %s\n",gcry_strerror (libgcryptError));
+      return -1;
+    }
+    fwrite(cipherText,256,1,destFile);    //write to decrypted file
+    outputSize = (int)strlen(cipherText);
+    bytesTotalWritten =  outputSize + bytesTotalWritten; 
+
+    printf("\n Read %d bytes, wrote bytes %d", 256, outputSize );
   }
-    
-  fwrite( plainText , strlen(plainText) , 1 , destFile );    //write to decrypted file
-  outputSize = (int)strlen(plainText);
-  bytesTotalWritten =  outputSize + bytesTotalWritten; 
-  printf("\n Read %d bytes, wrote bytes %d", (int)strlen(cipherText), outputSize );
-      
   printf("\nSuccessfully decrypted file %s to %s ( %d bytes written)\n\n",srcfilename,decryptedFileName,bytesTotalWritten);
   
   fclose(destFile);   // close both files

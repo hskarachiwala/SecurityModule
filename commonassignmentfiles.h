@@ -73,14 +73,14 @@ void PrepareForCryptoOperation(char *saltValue)
     printf ("Failure in creating encryption handle: Details - %s\n", gcry_strerror (libgcryptError));
     exit(0);
   }
-
+/*
   libgcryptError = gcry_cipher_setiv (handle, "thissixteenbytes" , 16 );   // set an iv for cbc
   if (libgcryptError)
   {
     printf ("Failure in setting the IV for encryption : Details - %s\n", gcry_strerror (libgcryptError));
     exit(0);
   }
-  
+  */
   libgcryptError = gcry_kdf_derive( password , strlen(password), GCRY_KDF_PBKDF2 , GCRY_MD_SHA512, saltValue , strlen(saltValue) , 64000, 16 , keybuffer );
   if (libgcryptError)
   {
