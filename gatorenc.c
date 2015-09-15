@@ -6,21 +6,21 @@ int main(int argc,char *argv[])
   unsigned char *plainText,*cipherText;
   FILE *srcFile,*destFile;
 
-  if ( argc != 3 || ( !strcmp(argv[2],"-l") && !strcmp(argv[2],"-d") ) )                   //incorrect invocation
+  if ( argc != 3 || ( !strcmp(argv[1],"-l") && !strcmp(argv[1],"-d") ) )                   //incorrect invocation
   {
-    printf("Incorrect arguments supplied - Use <filename> [-d] [-l]\n");
-    return -1;
+    printf("Incorrect arguments supplied - Use [-d] [-l] <filename>\n");
+    exit(0);
   }
 
-  srcfilename = argv[1];
+  srcfilename = argv[2];
   srcFile = fopen(srcfilename,"r");      //open file
   if(srcFile == NULL)           //file not found
   {
     printf("File not found");
-    return -1;
+    exit(0);
   }
 
-  char *saveStringName = malloc(strlen(srcfilename));
+  char *saveStringName = malloc(strlen(srcfilename));     //save source file name
   strcpy(saveStringName,srcfilename);
   strcat(srcfilename,".uf");                // destination file if source is successfully found
     
@@ -30,72 +30,109 @@ int main(int argc,char *argv[])
     return -1;
   }
 
-  destFile = fopen(srcfilename,"w");
+  // The first two lines of the encrypted file will hold the salt value and its length respectively
+
+  destFile = fopen(srcfilename,"w+");
   char *salt = fetchSaltForPassword(); 
-  fprintf(destFile, "%d", (int)strlen(salt) );    //write salt length
-  fseek(destFile, 64 ,SEEK_SET);
-  fprintf(destFile, "\n%s", salt );               // write salt value
+  fprintf(destFile, "%s\n", salt );               // write salt value
 
   PrepareForCryptoOperation(salt);    //common functionalities including initializing the handle and setting the passkey
 
-  currentAlgoBlockSize = (int)gcry_cipher_get_algo_blklen(GCRY_CIPHER_AES);  // get the block size of the algo
-  if(!currentAlgoBlockSize)
-  {
-    printf("\nFailed to retrieve block size");
-    return -1;
-  }
-
   int outputSize,bytesTotalWritten = 0;
-  plainText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     //read block of 1024 bytes
-  cipherText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     
+  plainText = malloc( 1024 );     //read block of 1024 bytes
+  cipherText = malloc( 1024 );     // write block of 1024 bytes
 
-  fseek(destFile,256,SEEK_SET);
-  while(!feof(srcFile))
+  fseek(destFile,128,SEEK_SET);     // set encrypted data to write 128 bytes onwards
+
+  int i = 0; 
+  unsigned char c;
+  do
   {
-    fread(plainText,currentAlgoBlockSize,1,srcFile);      // reading in algo block size quantity     
-     
-    libgcryptError =  gcry_cipher_encrypt (handle, cipherText, 1024, plainText, currentAlgoBlockSize );    //encrypt
-    if (libgcryptError)
+    c = fgetc(srcFile);
+    if( i == (1024-1) )       // if buffer is full, encrypt and write to file
     {
-      printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
-      return -1;
+      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 1024, plainText, 1024 );    //encrypt
+      if (libgcryptError)
+      {
+        printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
+        return -1;
+      }
+      fwrite( cipherText , strlen(cipherText) , 1 , destFile );    //write to encrypted file
+      outputSize = (int)strlen(cipherText);
+      bytesTotalWritten =  outputSize + bytesTotalWritten; 
+      printf("\n Read %d bytes, wrote bytes %d", (int)strlen(plainText), outputSize );
+      i=0;
     }
+    if( feof(srcFile) )     // if eof , write to file and break out
+    {
+      plainText[i] = '\0';
+      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 1024, plainText, strlen(plainText) );    //encrypt
+      if (libgcryptError)
+      {
+        printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
+        return -1;
+      }
+      fwrite( cipherText , strlen(cipherText) , 1 , destFile );    //write to encrypted file
+      outputSize = (int)strlen(cipherText);
+      bytesTotalWritten =  outputSize + bytesTotalWritten; 
+      printf("\n Read %d bytes, wrote bytes %d", (int)strlen(plainText), outputSize );
+      break ;
+    }
+    plainText[i++] = c;
+  }while(1);
 
-    fwrite(cipherText,currentAlgoBlockSize,1,destFile);    //write to encrypted file
-    outputSize = (int)strlen(cipherText);
-    bytesTotalWritten =  outputSize + bytesTotalWritten; 
 
-    printf("\n Read %d bytes, wrote bytes %d", currentAlgoBlockSize, outputSize );
-
-  }
   printf("\nSuccessfully encrypted file %s to %s ( %d bytes written)\n\n",saveStringName,srcfilename,bytesTotalWritten);
-  PrepareForHashOperation();
-  AttachHash(destFile,bytesTotalWritten);
+  
+  fclose(destFile);   // close both files
+  fclose(srcFile);
 
-  cleanup( srcFile , destFile , plainText , cipherText );       
+  free(plainText);
+  free(cipherText);
+
+  PrepareForHashOperation();
+  AttachHash(bytesTotalWritten,srcfilename);
+
+  cleanup();       
     
 }
 
-void AttachHash(FILE * encryptedFile , int bytesTotalWritten)
+void AttachHash( int bytesTotalWritten , char * encryptedFileName )
 {
-  FILE * writer = encryptedFile;
-
-  unsigned char *encryptedData = malloc( bytesTotalWritten );
-  unsigned char *digest = malloc( bytesTotalWritten );
-
-  fseek(writer, 128 , SEEK_SET);        //writer will write the hashed data from 128 to 256 bytes
-  fseek(encryptedFile, 256, SEEK_SET);                  // reader will begin from the start of encrypted data location
-
-  while( !feof(encryptedFile) )      
+  int hashSize;
+  FILE * reader = fopen(encryptedFileName,"r");     // will read the encrypted data
+  if(reader ==  NULL)
   {
-    fread( encryptedData, bytesTotalWritten, 1, encryptedFile);   // read the encrypted data
-    gcry_md_write( digestHandle, encryptedData , 1);
-    digest = gcry_md_read( digestHandle , 0 );
-    fwrite( digest, (int)strlen(digest), 1 , writer);
+    printf("\nFailed to open encrypted file to read data");
+    exit(0);
+  }
+    
+  FILE * writer = fopen(encryptedFileName,"a");    // will insert hash between salt length and encrypted data
+  if(reader ==  NULL)
+  {
+    printf("\nFailed to open encrypted file to write hash");
+    exit(0);
   }
 
+  hashSize = gcry_md_get_algo_dlen( GCRY_MD_SHA512 );   // retrieve hash size
+
+  unsigned char *encryptedData = malloc( bytesTotalWritten );
+  unsigned char *digest = malloc( hashSize );           // 512 bit hash
+
+  fseek(writer, 32 , SEEK_SET);        //writer will write the hashed data from 32 to 96 bytes
+  fseek(reader, 128, SEEK_SET);                  // reader will begin from the start of encrypted data location
+
+  while( !feof(reader) )         // read the encrypted data
+  {    
+    fread( encryptedData, bytesTotalWritten, 1, reader );   // read all the encrypted data
+    gcry_md_write( digestHandle, encryptedData , strlen(encryptedData) );              // write a hash
+    digest = gcry_md_read( digestHandle , GCRY_MD_SHA512 );                     // read it into digest
+    fwrite( digest, (int)strlen(digest), 1 , writer);             // write digest to encrypted file
+  }
+
+  fclose(writer);
   free(encryptedData);
-  free(digest);
+//  free(digest);
 
   printf("\nHash written to file of size %d bytes\n",(int)strlen(digest));
 }

@@ -5,21 +5,22 @@ int main(int argc,char *argv[])
   unsigned char *plainText,*cipherText;
   char *srcfilename=NULL;
   FILE *srcFile,*destFile;
+  char * salt = malloc(16);
 
   srcfilename = argv[2];
   srcFile = fopen(srcfilename,"r");      //open file
   if(srcFile == NULL)           //file not found
   {
     printf("File not found");
-    return -1;
+    exit(0);
   }
   
-  plainText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     //read block of 1024 bytes
-  cipherText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     
+  fscanf(srcFile,"%s",salt);     // fetch salt from encrypted file
+  fclose(srcFile);
 
-  PrepareForCryptoOperation("hamzakarachi");
+  PrepareForCryptoOperation(salt);
 
-  char * decryptedFileName = malloc(256);     // to reconstruct the file name
+  char * decryptedFileName = malloc( 64 );     // to reconstruct the file name
   int i;
   for( i = 0 ; i < 256 ; i++)
   {
@@ -32,57 +33,70 @@ int main(int argc,char *argv[])
   }
   strcat( decryptedFileName,".txt" );
 
-  destFile = fopen(decryptedFileName,"w");     
-  currentAlgoBlockSize = (int)gcry_cipher_get_algo_blklen(GCRY_CIPHER_AES256);  // get the block size of the algo
+  currentAlgoBlockSize = (int)gcry_cipher_get_algo_blklen(GCRY_CIPHER_AES);  // get the block size of the algo
   if(!currentAlgoBlockSize)
   {
     printf("\nFailed to retrieve block size");
-    return -1;
+    exit(0);
   }
 
   int outputSize,bytesTotalWritten = 0;
-  plainText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     //read block of 1024 bytes
-  cipherText = (unsigned char*)malloc(sizeof(unsigned char) * 1024);     
-  
+  long filelen;
   PrepareForHashOperation();
-  VerifyHash(srcFile,cipherText);
-  fseek( srcFile, 256 , SEEK_SET);
+  VerifyHash(srcfilename);
+  
+  srcFile = fopen(srcfilename,"rb");
+  destFile = fopen(decryptedFileName,"w");     
+  fseek(srcFile, 0, SEEK_END);          // Jump to the end of the file
+  filelen = ftell(srcFile);             // Get the current byte offset in the file
+  filelen = filelen - 128;              // ignore the first 128 bytes
 
-  while( !feof(srcFile) )
-  {      
-    fread( cipherText,currentAlgoBlockSize,1,srcFile );
-    libgcryptError =  gcry_cipher_decrypt (handle, plainText, 1024, cipherText, currentAlgoBlockSize );    //decrypt
-    if (libgcryptError)
-    {
-      printf ("Failure in decrypting : Details -  %s\n",gcry_strerror (libgcryptError));
-      return -1;
-    }
-
-    fwrite(plainText,currentAlgoBlockSize,1,destFile);    //write to encrypted file
-    outputSize = (int)strlen(cipherText);
-    bytesTotalWritten =  outputSize + bytesTotalWritten; 
-
-    printf("\n Read %d bytes, wrote bytes %d", currentAlgoBlockSize, outputSize );
-
+  plainText = malloc( (filelen + 1) );   // Allocate that much space
+  cipherText = malloc( (filelen + 1) );   // Allocate that much space
+  cipherText[filelen+1] = '\0';           // Close the string
+  fseek( srcFile, 128 , SEEK_SET);          //start reading from 128 bytes in file
+  fread( cipherText, filelen , 1, srcFile); // Read in the entire file
+      
+  libgcryptError =  gcry_cipher_decrypt( handle, plainText, 1024, cipherText, 1024 );    //decrypt
+  if (libgcryptError)
+  {
+    printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
+    return -1;
   }
+    
+  fwrite( plainText , strlen(plainText) , 1 , destFile );    //write to decrypted file
+  outputSize = (int)strlen(plainText);
+  bytesTotalWritten =  outputSize + bytesTotalWritten; 
+  printf("\n Read %d bytes, wrote bytes %d", (int)strlen(cipherText), outputSize );
+      
   printf("\nSuccessfully decrypted file %s to %s ( %d bytes written)\n\n",srcfilename,decryptedFileName,bytesTotalWritten);
-  cleanup( srcFile , destFile , plainText , cipherText );       
+  
+  fclose(destFile);   // close both files
+  fclose(srcFile);
 
+  free(plainText);
+  free(cipherText);
+  free(salt);
+
+  cleanup();       
 }
 
-void VerifyHash(FILE * encryptedFile , unsigned char * cipherText)
+void VerifyHash(char * encryptedFileName)
 {
-  unsigned char *hash = malloc(128);
-  unsigned char *newhash = malloc(128);
+  unsigned char * cipher = malloc(1024);
+  unsigned char *hash = malloc(64);           // size of hash
+  unsigned char *newhash = malloc(64);
+  FILE * encryptedFile = fopen(encryptedFileName,"r");
 
-  fseek( encryptedFile, 128, SEEK_SET);                  // reader will begin from the start of encrypted data
-  fread( hash, 128, 1, encryptedFile );
-  fseek( encryptedFile, 256 , SEEK_SET);
+  fseek( encryptedFile, 32, SEEK_SET);                  // reader will begin from the start of encrypted data
+  fread( hash, 64 , 1, encryptedFile );         // read the 64 byte hash
+  fseek( encryptedFile, 128 , SEEK_SET);        // read the encrypted data and rehash
 
-  while( fread( cipherText,128,1,encryptedFile) !=0 )   // read 128 bytes of cipher text to recompute hash
+  while( !feof(encryptedFile) )   // read cipher text to recompute hash
   {
-    gcry_md_write( digestHandle, cipherText , 1);
-    newhash = gcry_md_read( digestHandle , 0 );
+    fread( cipher , 1024 , 1 , encryptedFile);
+    gcry_md_write( digestHandle, cipher , strlen(cipher) );
+    newhash = gcry_md_read( digestHandle , GCRY_MD_SHA512 );
   }
 
   if (strcmp(hash,newhash))
@@ -93,4 +107,10 @@ void VerifyHash(FILE * encryptedFile , unsigned char * cipherText)
   {
     printf("\nMAC are not matching!");
   }
+
+  free(cipher);
+  free(hash);
+  //free(newhash);
+  fclose(encryptedFile);
 }
+
