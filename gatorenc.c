@@ -6,13 +6,17 @@ int main(int argc,char *argv[])
   unsigned char *plainText,*cipherText;
   FILE *srcFile,*destFile;
 
-  if ( argc != 3 || ( !strcmp(argv[1],"-l") && !strcmp(argv[1],"-d") ) )                   //incorrect invocation
+  if ( argc < 3 || ( !strcmp(argv[1],"-l") && !strcmp(argv[1],"-d") ) )                   //incorrect invocation
   {
-    printf("Incorrect arguments supplied - Use [-d] [-l] <filename>\n");
+    printf("Incorrect arguments supplied - Use [[-d ipAddress] | [-l]] <filename>\n");
     exit(0);
   }
 
-  srcfilename = argv[2];
+  if( !strcmp(argv[1],"-d") )
+    srcfilename = argv[3];
+  else
+    srcfilename = argv[2];
+
   srcFile = fopen(srcfilename,"r");      //open file
   if(srcFile == NULL)           //file not found
   {
@@ -39,8 +43,8 @@ int main(int argc,char *argv[])
   PrepareForCryptoOperation(salt);    //common functionalities including initializing the handle and setting the passkey
 
   int outputSize,bytesTotalWritten = 0;
-  plainText = malloc( 1024 );     //read block of 1024 bytes
-  cipherText = malloc( 1024 );     // write block of 1024 bytes
+  plainText = malloc( 128 );     //read block of 1024 bytes
+  cipherText = malloc( 128 );     // write block of 1024 bytes
 
   fseek(destFile,128,SEEK_SET);     // set encrypted data to write 128 bytes onwards
 
@@ -49,15 +53,15 @@ int main(int argc,char *argv[])
   do
   {
     c = fgetc(srcFile);
-    if( i == (1024-1) )       // if buffer is full, encrypt and write to file
+    if( i == (128-1) )       // if buffer is full, encrypt and write to file
     {
-      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 1024, plainText, 1024 );    //encrypt
+      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 128, plainText, 128 );    //encrypt
       if (libgcryptError)
       {
         printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
         return -1;
       }
-      fwrite( cipherText , strlen(cipherText) , 1 , destFile );    //write to encrypted file
+      fwrite( cipherText , 128 , 1 , destFile );    //write to encrypted file  
       outputSize = (int)strlen(cipherText);
       bytesTotalWritten =  outputSize + bytesTotalWritten; 
       printf("\n Read %d bytes, wrote bytes %d", (int)strlen(plainText), outputSize );
@@ -66,13 +70,13 @@ int main(int argc,char *argv[])
     if( feof(srcFile) )     // if eof , write to file and break out
     {
       plainText[i] = '\0';
-      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 1024, plainText, strlen(plainText) );    //encrypt
+      libgcryptError =  gcry_cipher_encrypt( handle, cipherText, 128, plainText, 128 );    //encrypt
       if (libgcryptError)
       {
         printf ("Failure in encrypting : Details -  %s\n",gcry_strerror (libgcryptError));
         return -1;
       }
-      fwrite( cipherText , strlen(cipherText) , 1 , destFile );    //write to encrypted file
+      fwrite( cipherText , strlen(cipherText) , 1 , destFile );    //write to encrypted file  
       outputSize = (int)strlen(cipherText);
       bytesTotalWritten =  outputSize + bytesTotalWritten; 
       printf("\n Read %d bytes, wrote bytes %d", (int)strlen(plainText), outputSize );
@@ -80,7 +84,6 @@ int main(int argc,char *argv[])
     }
     plainText[i++] = c;
   }while(1);
-
 
   printf("\nSuccessfully encrypted file %s to %s ( %d bytes written)\n\n",saveStringName,srcfilename,bytesTotalWritten);
   
@@ -94,7 +97,53 @@ int main(int argc,char *argv[])
   AttachHash(bytesTotalWritten,srcfilename);
 
   cleanup();       
+
+  if( strcmp(argv[1],"-d") == 0 )     //send the file over the socket
+  {
+    SendFileContents( srcfilename );  
+  }
     
+}
+
+void SendFileContents( char * srcfilename )
+{
+  int sockfd = 0;               // socket fd   
+  int bytesReceived = 0;    
+  unsigned char * sendBuffer = malloc(256); 
+  struct sockaddr_in serv_addr;
+  memset(sendBuffer, '0', 256);
+
+  serv_addr.sin_family = AF_INET;           //initiatialize serv_addr
+  serv_addr.sin_port = htons(8888);           // port
+  serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");     //localhost
+
+  if(( sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)       // create socket
+  {
+    printf("\n Error : Could not create socket");
+    exit(0);
+  }
+
+  if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0 )   //connect to gatordec
+  {
+    printf("\n Error : Connection to decryption module failed");
+    exit(0);   
+  }
+
+  int n = 0;
+  FILE * encryptedFile = fopen(srcfilename, "r"); 
+  if(encryptedFile == NULL)
+  {
+    printf("Encrypted File could not be opened");
+    exit(0);
+  }
+
+  while(!feof(encryptedFile))
+  {
+    n = fread( sendBuffer , 1 , 256 ,encryptedFile);    // read one byte and send at a time
+    if(n > 0)
+      write( sockfd, sendBuffer, n );
+  }
+  printf("\nTransmitting to 127.0.0.1:8888");
 }
 
 void AttachHash( int bytesTotalWritten , char * encryptedFileName )
@@ -134,7 +183,7 @@ void AttachHash( int bytesTotalWritten , char * encryptedFileName )
   free(encryptedData);
 //  free(digest);
 
-  printf("\nHash written to file of size %d bytes\n",(int)strlen(digest));
+//  printf("\nHash written to file of size %d bytes\n",(int)strlen(digest));
 }
 
 

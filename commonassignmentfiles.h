@@ -1,7 +1,13 @@
-#include<stdio.h>
-#include<gcrypt.h>
-#include<string.h>
-#include<unistd.h>
+#include <stdio.h>
+#include <gcrypt.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <errno.h>
+#include <arpa/inet.h>
 
 char * requestPassword();
 void PrepareForHashOperation();
@@ -9,6 +15,8 @@ void PrepareForCryptoOperation( char *);
 void AttachHash( int , char *);
 void VerifyHash( char *);
 void cleanup();
+void SendFileContents( char * );
+void PerformDecryption( char * ); 
 
 gcry_cipher_hd_t handle;              // cipher handle
 gcry_md_hd_t digestHandle;            // digest handle
@@ -58,7 +66,7 @@ void PrepareForHashOperation()
 
 void PrepareForCryptoOperation(char *saltValue)
 {
-  keybuffer = malloc(128);        // key size is 128 bits     
+  keybuffer = malloc(16);        // key size is 128 bits     
   password = requestPassword();   
 
   if( !InitializeGcrypt() )     //initializing gcrypt

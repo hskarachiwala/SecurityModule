@@ -26,4 +26,3 @@ I am writing the salt value to the beginning of the encrypted file. The salt val
 
 Effort - Please refer to the excel sheet for a detailed account 
 
-
