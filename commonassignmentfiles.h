@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <gcrypt.h>
 #include <string.h>
 #include <unistd.h>
@@ -15,7 +16,7 @@ void PrepareForCryptoOperation( char *);
 void AttachHash( int , char *);
 void VerifyHash( char *);
 void cleanup();
-void SendFileContents( char * );
+void SendFileContents( char * , char * , char *);
 void PerformDecryption( char * ); 
 
 gcry_cipher_hd_t handle;              // cipher handle
@@ -49,14 +50,14 @@ int InitializeGcrypt()
 
 void PrepareForHashOperation()
 {
-  libgcryptError = gcry_md_open( &digestHandle, GCRY_MD_SHA512, GCRY_MD_FLAG_HMAC );      // using sha512 as the hash, and requesting hmac
+  libgcryptError = gcry_md_open( &digestHandle, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC );      // using sha256 as the hash, and requesting hmac
   if (libgcryptError)
   {
     printf ("Failure in creating MAC handle: Details - %s\n", gcry_strerror (libgcryptError));
     exit(0);
   }
 
-  libgcryptError = gcry_md_setkey( digestHandle, keybuffer, strlen(keybuffer));      // using the same key 128 bits 
+  libgcryptError = gcry_md_setkey( digestHandle, keybuffer, 32);      // using the same key 128 bits 
   if (libgcryptError)
   {
     printf ("Failure in setting key for MAC: Details - %s\n", gcry_strerror (libgcryptError));
@@ -66,7 +67,7 @@ void PrepareForHashOperation()
 
 void PrepareForCryptoOperation(char *saltValue)
 {
-  keybuffer = malloc(16);        // key size is 128 bits     
+  keybuffer = malloc(32);        // key size is 256 bits     
   password = requestPassword();   
 
   if( !InitializeGcrypt() )     //initializing gcrypt
@@ -74,8 +75,8 @@ void PrepareForCryptoOperation(char *saltValue)
     printf("Failed to InitializeGcrypt");
     exit(0);
   }
-
-  libgcryptError = gcry_cipher_open( &handle, GCRY_CIPHER_AES, GCRY_CIPHER_MODE_CBC, GCRY_CIPHER_CBC_CTS) ;    //create handle
+//GCRY_CIPHER_CBC_CTS
+  libgcryptError = gcry_cipher_open( &handle, GCRY_CIPHER_AES256, GCRY_CIPHER_MODE_CBC, 0 ) ;    //create handle
   if (libgcryptError)
   {
     printf ("Failure in creating encryption handle: Details - %s\n", gcry_strerror (libgcryptError));
@@ -89,15 +90,15 @@ void PrepareForCryptoOperation(char *saltValue)
     exit(0);
   }
   
-  //generate 128 bit key using pbkdf2
-  libgcryptError = gcry_kdf_derive( password , strlen(password), GCRY_KDF_PBKDF2 , GCRY_MD_SHA512, saltValue , strlen(saltValue) , 100, 16 , keybuffer );
+  //generate 256 bit key using pbkdf2
+  libgcryptError = gcry_kdf_derive( password , strlen(password), GCRY_KDF_PBKDF2 , GCRY_MD_SHA256, saltValue , strlen(saltValue) , 100, 32 , keybuffer );
   if (libgcryptError)
   {
     printf ("Failure in deriving key: Details -  %s\n",gcry_strerror (libgcryptError));
     exit(0);
   }
 
-  libgcryptError = gcry_cipher_setkey (handle, keybuffer, 16);          //set key to encrypt
+  libgcryptError = gcry_cipher_setkey (handle, keybuffer, 32);          //set key to encrypt
   if (libgcryptError)
   {
     printf ("Failure in setting key: Details -  %s\n",gcry_strerror (libgcryptError));
@@ -134,6 +135,26 @@ char * requestPassword()
 //this method can be modified to return a truly random salt
 char * fetchSaltForPassword()
 {
-  return "hamzakarachi";
+  return "hamzakarachiwalarandomsaltreturn";      //returning 32 byte salt
 }
+
+// this method splits the port from the address
+
+void SplitIpAddress( char * ip , char * port , char * str )
+{
+  int i,j=0;
+  for( i = 0 ;  ; i++)
+  {
+    if( str[i] == ':' )
+    {
+      ip[i] = '\0';
+      break;
+    }
+    ip[i] = str[i];
+  }
+  for( i = i+1; i < strlen(str) ; i++)
+    port[j++] = str[i];
+  port[j] = '\0';
+}
+
 

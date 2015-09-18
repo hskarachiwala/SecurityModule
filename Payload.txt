@@ -1,1 +1,46 @@
-This is a file to encrypt.
+Safe Harbor
+
+The primary purpose of encryption is to protect the confidentiality of digital data stored on computer systems or transmitted via the Internet or other computer networks. Modern encryption algorithms play a vital role in the security assurance of IT systems and communications as they can provide not only confidentiality, but also the following key elements of security:
+
+Authentication: the origin of a message can be verified.
+Integrity: proof that the contents of a message have not been changed since it was sent.
+Non-repudiation: the sender of a message cannot deny sending the message.
+History of encryption
+The word encryption comes from the Greek word kryptos, meaning hidden or secret. The use of encryption is nearly as old as the art of communication itself. As early as 1900 BC, an Egyptian scribe used non-standard hieroglyphs to hide the meaning of an inscription. In a time when most people couldn't read, simply writing a message was often enough, but encryption schemes soon developed to convert messages into unreadable groups of figures to protect the message's secrecy while it was carried from one place to another. The contents of a message were reordered (transposition) or replaced (substitution) with other characters, symbols, numbers or pictures in order to conceal its meaning.
+
+In 700 BC, the Spartans wrote sensitive messages on strips of leather wrapped around sticks. When the tape was unwound the characters became meaningless, but with a stick of exactly the same diameter, the recipient could recreate (decipher) the message. Later, the Romans used what's known as the Caesar Shift Cipher, a monoalphabetic cipher in which each letter is shifted by an agreed number. So, for example, if the agreed number is three, then the message, "Be at the gates at six" would become "eh dw wkh jdwhv dw vla". At first glance this may look difficult to decipher, but juxtapositioning the start of the alphabet until the letters make sense doesn't take long. Also, the vowels and other commonly used letters like T and S can be quickly deduced using frequency analysis, and that information in turn can be used to decipher the rest of the message.
+
+The Middle Ages saw the emergence of polyalphabetic substitution, which uses multiple substitution alphabets to limit the use of frequency analysis to crack a cipher. This method of encrypting messages remained popular despite many implementations that failed to adequately conceal when the substitution changed, also known as key progression. Possibly the most famous implementation of a polyalphabetic substitution cipher is the Enigma electro-mechanical rotor cipher machine used by the Germans during World War Two.
+
+It was not until the mid-1970s that encryption took a major leap forward. Until this point, all encryption schemes used the same secret for encrypting and decrypting a message: a symmetric key. In 1976, B. Whitfield Diffie and Martin Hellman's paper New Directions in Cryptography solved one of the fundamental problems of cryptography, namely how to securely distribute the encryption key to those who need it. This breakthrough was followed shortly afterwards by RSA, an implementation of public-key cryptography using asymmetric algorithms, which ushered in a new era of encryption.
+
+How we use encryption today
+Until the arrival of the Diffie-Hellman key exchange and RSA algorithms, governments and their armies were the only real users of encryption. However, Diffie-Hellman and RSA led to the broad use of encryption in the commercial and consumer realms to protect data both while it is being sent across a network (data in transit) and stored, such as on a hard drive, smartphone or flash drive (data at rest). Devices like modems, set-top boxes, smartcards and SIM cards all use encryption or rely on protocols like SSH, S/MIME, and SSL/TLS to encrypt sensitive data. Encryption is used to protect data in transit sent from all sorts of devices across all sorts of networks, not just the Internet; every time someone uses an ATM or buys something online with a smartphone, makes a mobile phone call or presses a key fob to unlock a car, encryption is used to protect the information being relayed. Digital rights management systems, which prevent unauthorized use or reproduction of copyrighted material, are yet another example of encryption protecting data.
+
+How encryption works
+Data, often referred to as plaintext, is encrypted using an encryption algorithm and an encryption key. This process generates ciphertext that can only be viewed in its original form if decrypted with the correct key. Decryption is simply the inverse of encryption, following the same steps but reversing the order in which the keys are applied. Today's encryption algorithms are divided into two categories: symmetric and asymmetric.
+
+Symmetric-key ciphers use the same key, or secret, for encrypting and decrypting a message or file. The most widely used symmetric-key cipher is AES, which was created to protect government classified information. Symmetric-key encryption is much faster than asymmetric encryption, but the sender must exchange the key used to encrypt the data with the recipient before he or she can decrypt it. This requirement to securely distribute and manage large numbers of keys means most cryptographic processes use a symmetric algorithm to efficiently encrypt data, but use an asymmetric algorithm to exchange the secret key.
+
+Asymmetric cryptography, also known as public-key cryptography, uses two different but mathematically linked keys, one public and one private. The public key can be shared with everyone, whereas the private key must be kept secret. RSA is the most widely used asymmetric algorithm, partly because both the public and the private keys can encrypt a message; the opposite key from the one used to encrypt a message is used to decrypt it. This attribute provides a method of assuring not only confidentiality, but also the integrity, authenticity and non-reputability of electronic communications and data at rest through the use of digital signatures.
+
+Cryptographic hash functions
+A cryptographic hash function plays a somewhat different role than other cryptographic algorithms. Hash functions are widely used in many aspects of security, such as digital signatures and data integrity checks. They take an electronic file, message or block of data and generate a short digital fingerprint of the content called a message digest or hash value. The key properties of a secure cryptographic hash function are:
+
+Output length is small compared to input
+Computation is fast and efficient for any input
+Any change to input affects lots of output bits
+One-way value-- the input cannot be determined from the output
+Strong collision resistance -- two different inputs can't create the same output
+In 2012, the National Institute of Standards and Technology (NIST) announced Keccak as the winner of its Cryptographic Hash Algorithm Competition to select a next-generation cryptographic hash algorithm. The Keccak (pronounced "catch-ack") algorithm will be known as SHA-3 and complement the SHA-1 and SHA-2 algorithms specified in FIPS 180-4, Secure Hash Standard. Even though the competition was prompted by successful attacks on MD5 and SHA-0 and the emergence of theoretical attacks on SHA-1, NIST has said that SHA-2 is still "secure and suitable for general use."
+
+The ciphers in hash functions are built for hashing: they use large keys and blocks, can efficiently change keys every block and have been designed and vetted for resistance to related-key attacks. General-purpose ciphers used for encryption tend to have different design goals. For example, the symmetric-key block cipher AES could also be used for generating hash values, but its key and block sizes make it nontrivial and inefficient.
+
+Contemporary encryption issues
+For any cipher, the most basic method of attack is brute force; trying each key until the right one is found. The length of the key determines the number of possible keys, and hence the feasibility of this type of attack. Encryption strength is directly tied to key size, but as the key size increases so too do the resources required to perform the computation.
+
+Alternative methods of breaking a cipher include side-channel attacks, which don't attack the actual cipher but its implementation. An error in system design or execution can allow such attacks to succeed.
+
+Another approach is to actually break the cipher through cryptanalysis; finding a weakness in the cipher that can be exploited with a complexity less than brute force. The challenge of successfully attacking a cipher is easier of course if the cipher itself is flawed in the first place. There have always been suspicions that interference from the National Security Agency weakened the Data Encryption Standard algorithm, and following revelations from former NSA analyst and contractor Edward Snowden, many believe they have attempted to weaken encryption products and subvert cryptography standards.
+
+Despite these issues, one reason for the popularity and longevity of the AES algorithm is that the process that led to its selection was fully open to public scrutiny and comment ensuring a thorough, transparent analysis of the design.
