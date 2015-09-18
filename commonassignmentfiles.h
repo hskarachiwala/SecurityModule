@@ -17,7 +17,7 @@ void AttachHash( int , char *);
 void VerifyHash( char *);
 void cleanup();
 void SendFileContents( char * , char * , char *);
-void PerformDecryption( char * ); 
+void PerformDecryption( char * , char *); 
 
 gcry_cipher_hd_t handle;              // cipher handle
 gcry_md_hd_t digestHandle;            // digest handle

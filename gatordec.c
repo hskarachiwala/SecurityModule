@@ -9,7 +9,7 @@ int main(int argc,char *argv[])
     if( strcmp(argv[1],"-l") == 0)        // open file and read salt
     {
       srcfilename = argv[2];
-      PerformDecryption(srcfilename);   
+      PerformDecryption(srcfilename,srcfilename);   //in case of file mode we the source file has to be decrypted    
     }
   }
   else
@@ -19,7 +19,7 @@ int main(int argc,char *argv[])
     socklen_t socketSize;
     unsigned char * receiveBuffer = malloc(256);    // read from socket     
 
-    FILE * tempFile = fopen("srcfilename","w");
+    FILE * tempFile = fopen("workpad.txt","w");       // create a temporary file to write the data received over socket
 
     memset(&serv_addr, '0', sizeof(serv_addr));     //initialize
     memset(receiveBuffer, '0', sizeof(receiveBuffer));
@@ -54,28 +54,29 @@ int main(int argc,char *argv[])
     {
       connfd = accept(listenfd, (struct sockaddr *)&serv_addr, &socketSize);
       printf("\nInbound File\n");
-      read( connfd, srcfilename, 64);
+      read( connfd, srcfilename, 64);       //accept the file name first
       while( 1 )
       {
         bytesReceived = read( connfd, receiveBuffer, 256);
         if( bytesReceived == 0)
           break;
-        fwrite(receiveBuffer , 1, bytesReceived, tempFile);
+        fwrite(receiveBuffer , 1, bytesReceived, tempFile);         // write all data received to temp file
       }
       fclose(tempFile);
       printf("%s\n",srcfilename );
-      PerformDecryption( srcfilename );
+      PerformDecryption( "workpad.txt",srcfilename );         // decrypt data in temp and write to received file name
+      remove("workpad.txt");
     }
   }  
 }
 
-void PerformDecryption ( char * srcfilename )
+void PerformDecryption ( char * workpad ,char * srcfilename )
 {
   char *workBuffer;
   FILE *srcFile,*destFile;
   char * salt = malloc(32);
 
-  srcFile = fopen(srcfilename,"r");
+  srcFile = fopen(workpad,"r");
   if(srcFile == NULL)           //file not found
   {
     printf("File not found\n");
